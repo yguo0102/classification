@@ -17,7 +17,6 @@ def load_data(f_path):
         Given a path, loads a data set and puts it into a dataframe
         - simplified mechanism
     '''
-    #df = pd.read_csv(f_path, dtype=str, lineterminator='\n')
     df = pd.read_csv(f_path)
     return df
 

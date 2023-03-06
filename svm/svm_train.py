@@ -18,9 +18,7 @@ random.seed(0)
 
 def main(train_file, dev_file, test_file, out_file, out_model):
 
-    metrics = {}
-
-    # get features
+    # get tf-idf features
     train_X, train_classes, dev_X, dev_classes = \
             feature_generator.fit_transform(train_file, dev_file)
 
@@ -29,52 +27,49 @@ def main(train_file, dev_file, test_file, out_file, out_model):
     kernel_params = ['linear', 'rbf']
     parameters = {'kernel':kernel_params, 'C':c_params}
 
+    # initialze the model
     svc = svm.SVC(cache_size=200, gamma='auto', probability=True)
-
     clf = GridSearchCV(svc, parameters, cv=5)
+
+    # model training
     clf.fit(train_X, train_classes)
     print('best params:', clf.best_params_)
     print('best score:', clf.best_score_)
-    metrics['best_score'] = clf.best_score_
 
-    # write dev predictions
+    # evaluate on the dev set
     predictions = clf.predict(dev_X)
     acc = accuracy_score(dev_classes, predictions)
     print('evaluation on dev acc:{0:.2f}'.format(acc))
-    metrics['eval_score'] = acc
 
+    # store the svm model
     with open(out_model, 'wb') as handle:
         pickle.dump(clf, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    # predict on the test set and store the predictions to a csv file
     test_X = feature_generator.transform(test_file)
     predictions = clf.predict(test_X)
     df = pd.DataFrame({'index':[i for i in range(len(predictions))], 'prediction':predictions})
     df.to_csv(out_file, index=False, sep='\t')
 
+    # evaluate on the test set
     test_df = pd.read_csv(test_file)
     test_classes = test_df['label'].to_numpy()
-
     print(classification_report(test_classes, predictions))
     print('micro f1:{0:.2f}'.format(f1_score(test_classes, predictions, average='micro')))
 
-    return df, metrics
-
-
-def strfmt_prob(prob_array):
-    ret = []
-    n_samples, n_classes = prob_array.shape
-    for i in range(n_samples):
-        str_prob = ','.join([str(prob_array[i][j]) for j in range(n_classes)])
-        ret.append(str_prob)
-    return ret
+    return df
 
 
 if __name__ == '__main__':
     # load the data
+
+    # the folder that stores the train, dev, and testing set.
     data_dir = sys.argv[1]
+
     train_file = f'{data_dir}/train.csv'
     dev_file = f'{data_dir}/dev.csv'
     test_file = f'{data_dir}/test.csv'
+
     out_file = f'{data_dir}/svm_test_result.txt'
     out_model = f'{data_dir}/svm_model.pickle'
     main(train_file, dev_file, test_file, out_file, out_model)
